@@ -1,11 +1,17 @@
 const express = require("express");
 const router = express.Router();
+const crypto = require("crypto");
 const Cart = require("../models/Cart");
 const Order = require("../models/Order");
 const User = require("../models/User");
 const jwt = require("jsonwebtoken");
+const Razorpay = require("razorpay");
 
 const SECRET_KEY = "MY_SUPER_SECRET_KEY";
+const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID,
+  key_secret: process.env.RAZORPAY_KEY_SECRET,
+});
 
 // --------------------- Middleware: Verify Token ---------------------
 function authenticateToken(req, res, next) {
@@ -36,10 +42,100 @@ async function generateOrderId() {
   return `${year}${paddedSerial}`;
 }
 
-// --------------------- PLACE ORDER ---------------------
+// --------------------- CREATE RAZORPAY ORDER (for Online Payment) ---------------------
+router.post("/create-razorpay-order", authenticateToken, async (req, res) => {
+  const userId = req.user.id;
+  try {
+    const cart = await Cart.findOne({ userId });
+    if (!cart || cart.items.length === 0)
+      return res.status(400).json({ message: "Cart is empty" });
+
+    const amountPaise = cart.items.reduce(
+      (sum, item) => sum + (item.price || 0) * (item.quantity || 0),
+      0
+    ) * 100; // Razorpay expects amount in paise
+    const amountRupees = Math.ceil(amountPaise / 100);
+    if (amountRupees < 1)
+      return res.status(400).json({ message: "Order amount must be at least ₹1" });
+
+    const options = {
+      amount: amountPaise,
+      currency: "INR",
+      receipt: `rcpt_${Date.now()}`,
+    };
+    const razorpayOrder = await razorpay.orders.create(options);
+
+    res.status(200).json({
+      orderId: razorpayOrder.id,
+      amount: razorpayOrder.amount,
+      currency: razorpayOrder.currency,
+      key_id: process.env.RAZORPAY_KEY_ID,
+    });
+  } catch (err) {
+    res.status(500).json({ message: "Failed to create payment order", error: err.message });
+  }
+});
+
+// --------------------- VERIFY RAZORPAY PAYMENT & PLACE ORDER ---------------------
+router.post("/verify-payment", authenticateToken, async (req, res) => {
+  const userId = req.user.id;
+  const {
+    razorpay_order_id,
+    razorpay_payment_id,
+    razorpay_signature,
+    email,
+    phone,
+    countryCode,
+    address,
+  } = req.body;
+
+  try {
+    const signBody = `${razorpay_order_id}|${razorpay_payment_id}`;
+    const expectedSign = crypto
+      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+      .update(signBody)
+      .digest("hex");
+
+    if (expectedSign !== razorpay_signature)
+      return res.status(400).json({ message: "Payment verification failed" });
+
+    const cart = await Cart.findOne({ userId });
+    if (!cart || cart.items.length === 0)
+      return res.status(400).json({ message: "Cart is empty" });
+
+    const user = await User.findById(userId);
+    const newOrderId = await generateOrderId();
+
+    const order = new Order({
+      orderId: newOrderId,
+      username: user.username,
+      email: email || user.email,
+      phone: phone || user.phone,
+      address,
+      paymentMethod: "Online Payment",
+      payment_details: {
+        razorpayOrderId: razorpay_order_id,
+        razorpayPaymentId: razorpay_payment_id,
+      },
+      items: cart.items,
+    });
+
+    await order.save();
+    await Cart.findOneAndUpdate({ userId }, { items: [] });
+
+    res.status(200).json({ message: "Order placed", orderId: newOrderId });
+  } catch (err) {
+    res.status(500).json({ message: "Order error", error: err.message });
+  }
+});
+
+// --------------------- PLACE ORDER (Cash on Delivery only) ---------------------
 router.post("/order", authenticateToken, async (req, res) => {
   const userId = req.user.id;
-  const { email, phone, address, paymentMethod, cardNumber, expiry } = req.body;
+  const { email, phone, address, paymentMethod } = req.body;
+
+  if (paymentMethod === "Online Payment")
+    return res.status(400).json({ message: "Use Razorpay checkout for online payment" });
 
   try {
     const cart = await Cart.findOne({ userId });
@@ -55,10 +151,10 @@ router.post("/order", authenticateToken, async (req, res) => {
       email,
       phone,
       address,
-      paymentMethod,
+      paymentMethod: paymentMethod || "Cash On Delivery",
       payment_details: {
-        cardNumber: paymentMethod === "Card" ? cardNumber : null,
-        expiry: paymentMethod === "Card" ? expiry : null,
+        razorpayOrderId: null,
+        razorpayPaymentId: null,
       },
       items: cart.items,
     });

@@ -8,8 +8,8 @@ const orderSchema = new mongoose.Schema({
   phone: String,
   paymentMethod: String,
   payment_details: {
-    razorpayOrderId: { type: String, default: null },
-    razorpayPaymentId: { type: String, default: null },
+    cardNumber: { type: String, default: null },
+    expiry: { type: String, default: null },
   },
   status: { type: String, default: "Approved" },
   cancelReason: { type: String, default: null },

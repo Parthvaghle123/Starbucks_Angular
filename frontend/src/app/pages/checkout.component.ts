@@ -4,6 +4,12 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { ApiService } from '../services/api.service';
 
+declare global {
+  interface Window {
+    Razorpay: any;
+  }
+}
+
 @Component({
   selector: 'app-checkout',
   standalone: true,
@@ -18,9 +24,6 @@ export class CheckoutComponent implements OnInit {
     countryCode: "+91",
     address: "",
     paymentMethod: "Cash On Delivery",
-    cardNumber: "",
-    expiry: "",
-    cvv: "",
   };
 
   loading: boolean = false;
@@ -33,172 +36,140 @@ export class CheckoutComponent implements OnInit {
   ) {}
 
   ngOnInit() {
-    // Fetch user profile immediately on component load
     this.fetchUserProfile();
   }
 
   fetchUserProfile() {
-    // Ensure we're making the request
-    const request = this.apiService.get<any>('api/order/profile');
-    
-    request.subscribe({
+    this.apiService.get<any>('api/order/profile').subscribe({
       next: (res) => {
-        // Fill email and phone immediately
         this.formData.email = res.email || "";
         this.formData.phone = res.phone || "";
-        // Force change detection to update the view
         this.cdr.detectChanges();
       },
       error: (err) => {
-        // Silently handle error - don't show error message
         console.error("Error fetching profile", err);
         this.cdr.detectChanges();
       }
     });
   }
 
-  onCardNumberInput(event: any) {
-    let val = event.target.value.replace(/\D/g, "");
-    val = val.slice(0, 16);
-    val = val.replace(/(\d{4})(?=\d)/g, "$1 ");
-    this.formData.cardNumber = val;
-  }
-
-  onExpiryInput(event: any) {
-    let val = event.target.value.replace(/[^0-9/]/g, "").slice(0, 5);
-    if (val.length === 2 && !val.includes("/")) {
-      val = val + "/";
-    }
-    this.formData.expiry = val;
-  }
-
-  onCvvInput(event: any) {
-    const onlyNums = event.target.value.replace(/\D/g, "").slice(0, 4);
-    this.formData.cvv = onlyNums;
-  }
-
-  luhnCheck(numStr: string): boolean {
-    let sum = 0;
-    let shouldDouble = false;
-    for (let i = numStr.length - 1; i >= 0; i--) {
-      let digit = parseInt(numStr.charAt(i), 10);
-      if (shouldDouble) {
-        digit = digit * 2;
-        if (digit > 9) digit -= 9;
+  loadRazorpayScript(): Promise<void> {
+    return new Promise((resolve) => {
+      if (window.Razorpay) {
+        resolve();
+        return;
       }
-      sum += digit;
-      shouldDouble = !shouldDouble;
-    }
-    return sum % 10 === 0;
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.onload = () => resolve();
+      script.onerror = () => resolve(); // still resolve so we can show error in placeOrder
+      document.body.appendChild(script);
+    });
   }
 
   placeOrder() {
-    // Validate all required fields first
-    if (!this.formData.email || !this.formData.email.trim()) {
+    if (!this.formData.email?.trim() || !this.formData.phone?.trim() || !this.formData.address?.trim()) {
       this.errorMsg = "Please fill in all details and confirm your order.";
-      this.loading = false;
       return;
     }
-
-    if (!this.formData.phone || !this.formData.phone.trim()) {
-      this.errorMsg = "Please fill in all details and confirm your order.";
-      this.loading = false;
-      return;
-    }
-
-    if (!this.formData.address || !this.formData.address.trim()) {
-      this.errorMsg = "Please fill in all details and confirm your order.";
-      this.loading = false;
-      return;
-    }
-
     if (!this.formData.paymentMethod) {
-      this.errorMsg = "Please fill in all details and confirm your order.";
-      this.loading = false;
+      this.errorMsg = "Please select a payment method.";
       return;
     }
 
-    const rawCardNumber = this.formData.cardNumber.replace(/\s/g, "");
+    this.errorMsg = "";
 
-    // Validate card details if Online Payment is selected
-    if (this.formData.paymentMethod === "Online Payment") {
-      if (!rawCardNumber || !this.formData.expiry || !this.formData.cvv) {
-        this.errorMsg = "Please fill in all details and confirm your order.";
-        this.loading = false;
-        return;
-      }
-      if (rawCardNumber.length < 13 || rawCardNumber.length > 19) {
-        alert(" Invalid card number — it should be between 13 and 19 digits.");
-        return;
-      }
-
-      if (!/^\d+$/.test(rawCardNumber)) {
-        alert(" Card number must contain only digits.");
-        return;
-      }
-
-      if (!this.luhnCheck(rawCardNumber)) {
-        alert("Invalid card number. Please enter a valid card.");
-        return;
-      }
-
-      if (!/^\d{2}\/\d{2}$/.test(this.formData.expiry)) {
-        alert(" Expiry must be in MM/YY format.");
-        return;
-      }
-
-      const [mm, yy] = this.formData.expiry.split("/");
-      const month = parseInt(mm, 10);
-      const year = parseInt("20" + yy, 10);
-
-      if (month < 1 || month > 12) {
-        alert("Invalid month.");
-        return;
-      }
-
-      const now = new Date();
-      const currentMonth = now.getMonth() + 1;
-      const currentYear = now.getFullYear();
-
-      if (year < currentYear) {
-        alert("Card has expired.");
-        return;
-      }
-      if (year === currentYear && month < currentMonth) {
-        alert("Expiry month cannot be in the past.");
-        return;
-      }
-
-      if (this.formData.cvv.length < 3) {
-        alert("CVV must be at least 3 digits.");
-        return;
-      }
+    if (this.formData.paymentMethod === "Cash On Delivery") {
+      this.placeCodOrder();
+      return;
     }
 
-    // Clear any previous error messages
-    this.errorMsg = "";
-    
-    // Only proceed if all validations pass
+    if (this.formData.paymentMethod === "Online Payment") {
+      this.openRazorpayCheckout();
+      return;
+    }
+
+    this.errorMsg = "Invalid payment method.";
+  }
+
+  placeCodOrder() {
     this.loading = true;
-
-    const payload = {
-      ...this.formData,
-      cardNumber: rawCardNumber,
-    };
-
+    const payload = { ...this.formData };
     this.apiService.post("api/order/order", payload).subscribe({
-      next: () => {
-        // Order placed successfully - navigate to success page
-        this.router.navigate(["/order-success"]);
-      },
+      next: () => this.router.navigate(["/order-success"]),
       error: (err) => {
         console.error("Order failed", err);
         this.errorMsg = "❌ Order failed. Please try again.";
         this.loading = false;
       },
-      complete: () => {
+      complete: () => { this.loading = false; }
+    });
+  }
+
+  openRazorpayCheckout() {
+    this.loading = true;
+    this.apiService.post<{ orderId: string; amount: number; currency: string; key_id: string }>(
+      "api/order/create-razorpay-order",
+      {}
+    ).subscribe({
+      next: (res) => {
+        this.loadRazorpayScript().then(() => {
+          if (!window.Razorpay) {
+            this.errorMsg = "Payment script failed to load. Please try again.";
+            this.loading = false;
+            return;
+          }
+          const options = {
+            key: res.key_id,
+            amount: res.amount,
+            currency: res.currency,
+            order_id: res.orderId,
+            name: "Starbucks",
+            description: "Order payment",
+            prefill: {
+              email: this.formData.email,
+              contact: this.formData.phone,
+            },
+            handler: (response: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {
+              this.verifyAndPlaceOrder(response);
+            },
+            modal: {
+              ondismiss: () => {
+                this.loading = false;
+                alert("Payment cancelled. Please make payment to complete your order.");
+              },
+            },
+          };
+          const rzp = new window.Razorpay(options);
+          rzp.open();
+        });
+      },
+      error: (err) => {
+        console.error("Create Razorpay order failed", err);
+        this.errorMsg = err.error?.message || "❌ Could not start payment. Please try again.";
         this.loading = false;
-      }
+      },
+    });
+  }
+
+  verifyAndPlaceOrder(razorpayResponse: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) {
+    const payload = {
+      razorpay_order_id: razorpayResponse.razorpay_order_id,
+      razorpay_payment_id: razorpayResponse.razorpay_payment_id,
+      razorpay_signature: razorpayResponse.razorpay_signature,
+      email: this.formData.email,
+      phone: this.formData.phone,
+      countryCode: this.formData.countryCode,
+      address: this.formData.address,
+    };
+    this.apiService.post("api/order/verify-payment", payload).subscribe({
+      next: () => this.router.navigate(["/order-success"]),
+      error: (err) => {
+        console.error("Verify payment failed", err);
+        this.errorMsg = err.error?.message || "❌ Payment verification failed. Please contact support if amount was deducted.";
+        this.loading = false;
+      },
+      complete: () => { this.loading = false; }
     });
   }
 }
