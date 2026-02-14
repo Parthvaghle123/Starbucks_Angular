@@ -1,9 +1,9 @@
-<div class="container">
+<div class="container admin-orders-page">
   <div class="page-header">
     <h1>Order Management</h1>
     <p>Manage and track all orders efficiently</p>
   </div>
-  <hr />
+  <div class="page-header-divider"></div>
 
   <!-- Order Statistics -->
   <div class="stats-grid">
@@ -21,7 +21,7 @@
       <div class="stat-header">
         <span class="stat-title fw-bold">Total Revenue</span>
         <div class="stat-icon" style="background-color: #10b981">
-          <i class="fas fa-dollar-sign"></i>
+          <i class="fas fa-rupee-sign"></i>
         </div>
       </div>
       <div class="stat-value">₹{{totalRevenue | number:'1.2-2'}}</div>
@@ -29,9 +29,9 @@
 
     <div class="stat-card">
       <div class="stat-header">
-        <span class="stat-title fw-bold">Cancel Orders</span>
+        <span class="stat-title fw-bold">Cancelled Orders</span>
         <div class="stat-icon" style="background-color: #ef4444">
-          <i class="fas fa-box"></i>
+          <i class="fas fa-times-circle"></i>
         </div>
       </div>
       <div class="stat-value">{{cancelledOrdersCount}}</div>
@@ -174,7 +174,7 @@
   </div>
 </div>
 
-<!-- Modal -->
+<!-- Order Details Modal -->
 <div
   class="modal fade"
   id="itemsModal"
@@ -182,39 +182,41 @@
   aria-labelledby="itemsModalLabel"
   aria-hidden="true"
 >
-  <div class="modal-dialog modal-lg modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-order-details">
+    <div class="modal-content order-details-modal">
+      <div class="modal-header order-details-header">
         <h5 class="modal-title" id="itemsModalLabel">
-          <i class="fas fa-box me-1"></i>
+          <i class="fas fa-receipt me-2"></i>
           Order Details - #{{selectedOrder?.orderId || selectedOrder?._id?.slice(-6)}}
         </h5>
         <button
           type="button"
-          class="btn-close"
+          class="btn-close btn-close-white"
           data-bs-dismiss="modal"
           aria-label="Close"
         ></button>
       </div>
-      <div class="modal-body">
-        <div class="customer-info-modal">
-          <div class="row">
-            <div class="col-md-6">
-              <p><strong>Customer:</strong> {{selectedOrder?.username}}</p>
-              <p><strong>Email:</strong> {{selectedOrder?.email}}</p>
-              <p><strong>Phone:</strong> {{selectedOrder?.phone}}</p>
-            </div>
-            <div class="col-md-6">
-              <p><strong>Date:</strong> {{selectedOrder?.createdAt | date:'fullDate'}}</p>
-              <p><strong>Payment:</strong> {{selectedOrder?.paymentMethod || "Cash on Delivery"}}</p>
-              <p><strong>Status:</strong> <span [ngClass]="'status-badge status-' + (selectedOrder?.status?.toLowerCase() || 'pending')">{{selectedOrder?.status}}</span></p>
-            </div>
+      <div class="modal-body order-details-body">
+        <div class="order-info-grid">
+          <div class="order-info-card order-info-customer">
+            <h6 class="order-info-label"><i class="fas fa-user me-2"></i>Customer</h6>
+            <p class="order-info-row"><strong>Customer:</strong> {{selectedOrder?.username}}</p>
+            <p class="order-info-row"><strong>Email:</strong> {{selectedOrder?.email}}</p>
+            <p class="order-info-row"><strong>Phone:</strong> {{selectedOrder?.phone}}</p>
+          </div>
+          <div class="order-info-card order-info-meta">
+            <h6 class="order-info-label"><i class="fas fa-calendar-check me-2"></i>Order</h6>
+            <p class="order-info-row"><strong>Date:</strong> {{selectedOrder?.createdAt | date:'fullDate'}}</p>
+            <p class="order-info-row"><strong>Payment:</strong> {{selectedOrder?.paymentMethod || "Cash on Delivery"}}</p>
+            <p class="order-info-row"><strong>Status:</strong>
+              <span [ngClass]="'status-badge status-' + (selectedOrder?.status?.toLowerCase() || 'pending')">{{selectedOrder?.status}}</span>
+            </p>
           </div>
         </div>
 
-        <div *ngIf="selectedOrder && selectedOrder.items && selectedOrder.items.length > 0" class="table-responsive">
-          <table class="table table-striped table-hover items-table-modal mb-0 t1">
-            <thead class="text-align-center">
+        <div *ngIf="selectedOrder && selectedOrder.items && selectedOrder.items.length > 0" class="order-items-section">
+          <table class="table items-table-modal mb-0">
+            <thead>
               <tr>
                 <th>Item Name</th>
                 <th>Quantity</th>
@@ -223,29 +225,27 @@
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let item of selectedOrder.items">
+              <tr *ngFor="let item of selectedOrder.items; let i = index" [class.row-alt]="i % 2 === 1">
                 <td class="item-name">{{item.name || item.title || "Unknown Item"}}</td>
                 <td class="item-quantity">{{item.quantity}}</td>
                 <td class="item-price">₹{{item.price}}</td>
                 <td class="item-total">₹{{(item.price * item.quantity) | number:'1.2-2'}}</td>
               </tr>
             </tbody>
-            <tfoot>
-              <tr class="grand-total-row">
-                <td colspan="3" class="text-end fs-5">Grand Total:</td>
-                <td class="fs-5 text-success">₹{{selectedOrder.total}}</td>
-              </tr>
-            </tfoot>
           </table>
+          <div class="grand-total-wrap">
+            <span class="grand-total-label">Grand Total</span>
+            <span class="grand-total-value">₹{{selectedOrder.total}}</span>
+          </div>
         </div>
-        
-        <div *ngIf="selectedOrder && (!selectedOrder.items || selectedOrder.items.length === 0)" class="text-center py-4">
-          <i class="fas fa-box fa-3x text-muted mb-3"></i>
+
+        <div *ngIf="selectedOrder && (!selectedOrder.items || selectedOrder.items.length === 0)" class="order-empty-state">
+          <i class="fas fa-shopping-basket fa-3x text-muted mb-3"></i>
           <p class="text-muted mb-0">No items found in this order.</p>
         </div>
       </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      <div class="modal-footer order-details-footer">
+        <button type="button" class="btn btn-close-modal" data-bs-dismiss="modal">Close</button>
       </div>
     </div>
   </div>

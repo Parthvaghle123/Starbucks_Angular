@@ -1,7 +1,8 @@
+const path = require("path");
 const express = require("express");
 const cors = require("cors");
 const session = require("express-session");
-require("dotenv").config();
+require("dotenv").config({ path: path.join(__dirname, ".env") });
 
 const Mongo = require("./mongodb");
 const User = require("./models/User");

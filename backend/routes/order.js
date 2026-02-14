@@ -5,6 +5,7 @@ const Cart = require("../models/Cart");
 const Order = require("../models/Order");
 const User = require("../models/User");
 const jwt = require("jsonwebtoken");
+const { sendOrderConfirmationEmail } = require("../utils/emailService");
 const Razorpay = require("razorpay");
 
 const SECRET_KEY = "MY_SUPER_SECRET_KEY";
@@ -123,6 +124,11 @@ router.post("/verify-payment", authenticateToken, async (req, res) => {
     await order.save();
     await Cart.findOneAndUpdate({ userId }, { items: [] });
 
+    // Send order confirmation email (same format as design)
+    sendOrderConfirmationEmail(order).catch((e) =>
+      console.error("Order confirmation email failed:", e.message)
+    );
+
     res.status(200).json({ message: "Order placed", orderId: newOrderId });
   } catch (err) {
     res.status(500).json({ message: "Order error", error: err.message });
@@ -148,8 +154,8 @@ router.post("/order", authenticateToken, async (req, res) => {
     const order = new Order({
       orderId: newOrderId,
       username: user.username,
-      email,
-      phone,
+      email: email || user.email,
+      phone: phone || user.phone,
       address,
       paymentMethod: paymentMethod || "Cash On Delivery",
       payment_details: {
@@ -161,6 +167,11 @@ router.post("/order", authenticateToken, async (req, res) => {
 
     await order.save();
     await Cart.findOneAndUpdate({ userId }, { items: [] });
+
+    // Send order confirmation email (same format as design)
+    sendOrderConfirmationEmail(order).catch((e) =>
+      console.error("Order confirmation email failed:", e.message)
+    );
 
     res.status(200).json({ message: "Order placed", orderId: newOrderId });
   } catch (err) {

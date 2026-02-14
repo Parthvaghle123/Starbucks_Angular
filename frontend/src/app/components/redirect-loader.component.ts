@@ -12,7 +12,8 @@ import { Router } from '@angular/router';
 export class RedirectLoaderComponent implements OnInit, OnDestroy {
   @Input() seconds: number = 3;
   @Input() redirectUrl: string = '/';
-  @Input() message: string = 'Please wait...';
+  @Input() title: string = 'Welcome back!';
+  @Input() message: string = "You're signed in. Taking you to the Starbucks Website.";
   count: number = 3;
   private timer: any;
 
