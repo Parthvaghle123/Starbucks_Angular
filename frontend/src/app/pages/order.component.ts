@@ -20,6 +20,8 @@ interface Order {
   phone: string;
   address: string;
   paymentMethod: string;
+  paymentStatus?: string;
+  transactionId?: string | null;
   status: string;
   createdAt: string;
   items: OrderItem[];
@@ -169,7 +171,7 @@ export class OrderComponent implements OnInit {
     doc.text(`INVOICE ${order.orderId}`, 55, y + 43, { align: "center" });
 
     doc.setFontSize(11);
-    doc.setFont("times", "normal");
+    doc.setFont("times", "normal"); 
     doc.setTextColor(...darkBrown);
     doc.text(
       `Date: ${new Date(order.createdAt)
@@ -195,18 +197,28 @@ export class OrderComponent implements OnInit {
     doc.text(`Address: ${order.address}`, rightX, y + 43);
     doc.text(`Payment: ${order.paymentMethod}`, rightX, y + 51);
     doc.text(`Status: ${order.status}`, rightX, y + 59);
-
+    let detailY = y + 67;
+    if (order.paymentStatus) {
+      doc.text(`Payment Status: ${order.paymentStatus}`, rightX, detailY);
+      detailY += 8;
+    }
+    if (order.transactionId) {
+      doc.text(`Transaction ID: ${order.transactionId}`, rightX, detailY);
+      detailY += 8;
+    }
     if (order.status === "Cancelled" && order.cancelReason) {
       doc.setTextColor(255, 0, 0);
-      doc.text(`Cancel Reason: ${order.cancelReason}`, rightX, y + 67);
+      doc.text(`Cancel Reason: ${order.cancelReason}`, rightX, detailY);
       doc.setTextColor(...darkBrown);
+      detailY += 8;
     }
 
     doc.setDrawColor(...starbucksGreen);
     doc.setLineWidth(0.8);
-    doc.line(20, y + 70, 190, y + 70);
+    const lineY = Math.max(y + 70, detailY + 5);
+    doc.line(20, lineY, 190, lineY);
 
-    const tableStartY = y + 80;
+    const tableStartY = lineY + 10;
     const headerY = tableStartY;
 
     doc.setFillColor(...starbucksGreen);
