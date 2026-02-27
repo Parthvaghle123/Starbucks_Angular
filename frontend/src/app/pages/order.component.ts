@@ -299,8 +299,8 @@ export class OrderComponent implements OnInit {
     doc.line(200, 10 + borderHeight, 10, 10 + borderHeight);
     doc.line(10, 10 + borderHeight, 10, 10);
 
-    doc.setFillColor(...starbucksGreen);
-    doc.rect(10, 10 + borderHeight - 3, 190, 3, "F");
+    // doc.setFillColor(...starbucksGreen);
+    // doc.rect(10, 10 + borderHeight - 3, 190, 3, "F");
 
     doc.save(`Starbucks_Invoice_${order.orderId}.pdf`);
   }
