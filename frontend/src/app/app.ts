@@ -31,7 +31,8 @@ export class App implements OnInit {
           '/register',
           '/changepassword',
           '/checkout',
-          '/order-success'
+          '/order-success',
+          '/404'
         ];
 
         const isAdminPath = url.startsWith('/admin');

@@ -15,6 +15,7 @@ import { DashboardComponent } from './pages/admin/dashboard.component';
 import { UsersComponent } from './pages/admin/users.component';
 import { AdminOrdersComponent } from './pages/admin/admin-orders.component';
 import { AdminProductsComponent } from './pages/admin/admin-products.component';
+import { NotFoundComponent } from './pages/not-found.component';
 
 export const routes: Routes = [
   { path: '', component: HomeComponent },
@@ -40,5 +41,7 @@ export const routes: Routes = [
       { path: 'orders', component: AdminOrdersComponent },
       { path: 'products', component: AdminProductsComponent },
     ]
-  }
+  },
+  { path: '404', component: NotFoundComponent },
+  { path: '**', redirectTo: '404' }
 ];
