@@ -161,7 +161,7 @@ export class OrderComponent implements OnInit {
     doc.setFont("times", "normal");
     doc.text("123 Coffee Street, Seattle WA 98101", 20, y + 10);
     doc.text("Phone: 1-800-STARBUCKS", 20, y + 18);
-    doc.text("https://angular-frontend-gamma.vercel.app", 20, y + 26);
+    doc.text("https://angular-frontend-cin.vercel.app", 20, y + 26);
 
     doc.setFillColor(...starbucksGreen);
     doc.rect(20, y + 35, 70, 14, "F");
@@ -202,10 +202,10 @@ export class OrderComponent implements OnInit {
       doc.text(`Payment Status: ${order.paymentStatus}`, rightX, detailY);
       detailY += 8;
     }
-    if (order.transactionId) {
-      doc.text(`Transaction ID: ${order.transactionId}`, rightX, detailY);
-      detailY += 8;
-    }
+    // if (order.transactionId) {
+    //   doc.text(`Transaction ID: ${order.transactionId}`, rightX, detailY);
+    //   detailY += 8;
+    // }
     if (order.status === "Cancelled" && order.cancelReason) {
       doc.setTextColor(255, 0, 0);
       doc.text(`Cancel Reason: ${order.cancelReason}`, rightX, detailY);
