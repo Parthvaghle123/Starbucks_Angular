@@ -15,7 +15,7 @@ export class NotFoundComponent implements OnInit {
 
   ngOnInit(): void {
     if (typeof document !== 'undefined') {
-      document.title = '404 - Page Not Found | Starbucks';
+      document.title = 'Starbucks';
     }
   }
 

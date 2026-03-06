@@ -7,4 +7,6 @@ export interface Product {
   per?: string;
   description?: string;
   price?: number;
+  category?: string;
+  occasion?: string;
 }
